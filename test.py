@@ -1,73 +1,61 @@
+from sumBinary import Operations  
+
 class TuringMachine:
     def __init__(self, tape):
-        self.tape = list(tape)  # Convertir la cinta en una lista
-        self.head = len(self.tape) - 2  # Coloca la cabeza antes de la 'B'
-        self.state = 'q0'  # Estado inicial
-        self.carry = 0  # Acarreo para la suma
-    
+        self.tape = list(tape)  # Convierte la cinta de entrada (tape) en una lista de caracteres
+        self.head = len(tape) - 2  # Posición inicial del cabezal (antes del último carácter 'B')
+        self.state = 'q0'  # Estado inicial de la máquina de Turing
+        self.carry = 0  # Inicializa el acarreo en 0
+
+    def print_state(self):
+        print(f"State: {self.state}, Head: {self.head}, Carry: {self.carry}")
+        print(''.join(self.tape))  
+        print(' ' * self.head + '^') 
+
+    def get_corresponding_bits(self):
+        separator_pos = ''.join(self.tape).find('#')  # Encuentra la posición del separador '#'
+        num1 = ''.join(self.tape[:separator_pos])  # Extrae la primera parte del número (antes del '#')
+        num2 = ''.join(self.tape[separator_pos+1:]).rstrip('B')  # Extrae la segunda parte del número (después del '#', eliminando los 'B')
+        max_len = max(len(num1), len(num2))  # Determina la longitud máxima de ambos números
+        self.tape = list(f"{num1.zfill(max_len)}#{num2.zfill(max_len)}B")  # Rellena ambos números con ceros a la izquierda y forma la nueva cinta
+        return num1, num2  # Devuelve los dos números binarios como cadenas
+
     def step(self):
-        if self.state == 'q0':
-            # Estado inicial: mover la cabeza a la izquierda hasta encontrar el '#'
-            if self.tape[self.head] == '#':
-                self.state = 'q1'  # Cambiar al estado q1 cuando encontramos '#'
-                self.head -= 1
-            else:
-                self.head -= 1
-
-        elif self.state == 'q1':
-            # Estado q1: leer los números desde la derecha y realizar la suma
-            if self.tape[self.head] in '01':  # Si leemos un bit del primer número
-                bit1 = int(self.tape[self.head])  # Leer el bit del primer número
-                
-                # Verificar si hay un bit del segundo número (a la izquierda de '#')
-                if self.tape[self.head - 2] in '01':  # Si hay un bit válido del segundo número
-                    bit2 = int(self.tape[self.head - 2])  # Leer el bit del segundo número
-                else:  # Si no hay más bits del segundo número
-                    bit2 = 0  # Considerar el segundo número como 0
-
-                total = bit1 + bit2 + self.carry  # Sumar los bits con el acarreo
-
-                if total == 0:
-                    self.tape[self.head] = '0'  # Escribir 0 en la posición actual
-                    self.carry = 0
-                elif total == 1:
-                    self.tape[self.head] = '1'  # Escribir 1 en la posición actual
-                    self.carry = 0
-                elif total == 2:
-                    self.tape[self.head] = '0'  # Escribir 0 y llevar el acarreo
-                    self.carry = 1
-                elif total == 3:
-                    self.tape[self.head] = '1'  # Escribir 1 y llevar el acarreo
-                    self.carry = 1
-
-                self.head -= 2  # Mover la cabeza hacia la izquierda dos posiciones
-
-            elif self.tape[self.head] == 'B':  # Si encontramos un espacio en blanco
-                if self.carry == 1:  # Si queda un acarreo por propagar
-                    self.tape[self.head] = '1'  # Escribir el acarreo
-                self.state = 'HALT'  # Finaliza la ejecución
+        self.print_state()  # Imprime el estado actual de la máquina en cada paso
+        if self.state == 'q0':  # Si el estado es 'q0', se procesa la entrada
+            num1, num2 = self.get_corresponding_bits()  # Obtiene los dos números binarios
+            self.state = 'q1'  # Cambia al estado 'q1' para la siguiente fase
+            self.head = len(num1) - 1  # Coloca el cabezal al final del primer número binario
+            return
+        elif self.state == 'q1':  # Si el estado es 'q1', se ejecuta la suma
+            if self.head < 0:  # Si el cabezal alcanza el inicio de la cinta
+                if self.carry == 1:  # Si hay acarreo, añade un '1' al inicio
+                    self.tape.insert(0, '1')
+                self.state = 'HALT'  # Cambia el estado a 'HALT' para detener la máquina
+                return
+            separator_pos = ''.join(self.tape).find('#')  # Encuentra la posición del separador '#'
+            bit1 = int(self.tape[self.head]) if self.tape[self.head] in '01' else 0  # Obtiene el valor de la primera parte del número en la posición actual del cabezal
+            pos2 = separator_pos + 1 + self.head  # Calcula la posición correspondiente en el segundo número
+            bit2 = int(self.tape[pos2]) if pos2 < len(self.tape) - 1 and self.tape[pos2] in '01' else 0  # Obtiene el valor de la segunda parte del número
+            total = bit1 + bit2 + self.carry  # Suma los dos bits y el acarreo
+            self.carry = total // 2  # Calcula el nuevo acarreo (división entera por 2)
+            self.tape[self.head] = str(total % 2)  # Escribe el bit resultante (el residuo de la división)
+            self.head -= 1  # Mueve el cabezal a la izquierda para procesar el siguiente bit
 
     def run(self):
-        # Ejecutar la máquina de Turing hasta que llegue al estado HALT
-        print("Comienza la ejecución de la máquina de Turing...")
-        while self.state != 'HALT':
-            self.step()
-        # Quitar el separador '#' y los caracteres 'B' sobrantes al final
-        return ''.join(self.tape).replace('#', '').rstrip('B')
+        while self.state != 'HALT':  # Mientras el estado no sea 'HALT', sigue ejecutando pasos
+            self.step()  # Ejecuta un paso de la máquina
+        result = ''.join(self.tape).split('#')[0].rstrip('B')  # Obtiene el resultado final de la suma (antes del '#', eliminando los 'B')
+        return result  # Devuelve el resultado binario de la suma
 
+    def execute_sum(self):
+        # Extrae los dos números binarios desde la cinta, eliminando 'B' y dividiendo en la posición del '#'
+        bin_one, bin_two = ''.join(self.tape).replace('B', '').split('#')
+        return Operations.sum_binaries(bin_one, bin_two)  # Llama a la función de suma en la clase Operations
 
-# Ejemplo de entrada: 10 + 50 en binario
-input_tape = "1010#110010B"  # 10 (1010) + 50 (110010) en binario
+if __name__ == "__main__":
+    input_tape = "110010#111100B"  # La entrada de la máquina es '110010' + '#' + '111100' + 'B' (10 + 50 en binario)
+    tm = TuringMachine(input_tape)  
+    # result_int = tm.execute_sum()  
+    result_bin = tm.run()  
 
-# Crear la máquina de Turing con la cinta de entrada
-tm = TuringMachine(input_tape)
-
-# Ejecutar la simulación de la suma binaria
-result_bin = tm.run()
-
-# Convertir el resultado binario a decimal para verificación
-result_int = int(result_bin, 2)
-
-# Imprimir los resultados
-print(f"Resultado de la suma binaria: {result_bin}")  # Debe mostrar: 111100 (el binario de 60)
-print(f"Resultado de la suma en decimal: {result_int}")  # Debe mostrar: 60
